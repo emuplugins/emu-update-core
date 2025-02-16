@@ -25,7 +25,8 @@ define('PLUGINS_LIST', [
     'jet-elements/jet-elements.php',
     'jet-popup/jet-popup.php',
     'jet-tabs/jet-tabs.php',
-    'jet-engine-dynamic-tables-module/jet-engine-dynamic-tables-module.php'
+    'jet-engine-dynamic-tables-module/jet-engine-dynamic-tables-module.php',
+    'jet-menu/jet-menu.php'
 ]);
 
 // Função para validar plugins existentes
