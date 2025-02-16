@@ -16,16 +16,17 @@ function emu_load_on_update_pages() {
     $update_pages = ['update-core.php', 'update.php', 'plugins.php', 'themes.php'];
 
     if (in_array($pagenow, $update_pages)) {
-        
-        // Atualizações própias
-        require_once plugin_dir_path(__FILE__) . 'update-handler.php';
-
+    
+    
+    
         // Configuração do auto-update para o próprio plugin
         $plugin_slug = basename(__DIR__);
         if (substr($plugin_slug, -5) === '-main') {
             $plugin_slug = substr($plugin_slug, 0, -5);
         }
         $self_plugin_dir = basename(__DIR__);
+        
+        require_once plugin_dir_path(__FILE__) . 'update-handler.php';
 
         new Emu_Updater($plugin_slug, $self_plugin_dir);
 
