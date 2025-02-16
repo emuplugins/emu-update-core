@@ -3,7 +3,7 @@
 Plugin Name: Emu Update Core
 Description: Intercepta as atualizações de qualquer plugin e altera a URL de download com base em um JSON remoto.
 Version: 0.1.0
-Author: Seu Nome
+Author: Emu Plugins
 */
 
 if (!defined('ABSPATH')) exit;
