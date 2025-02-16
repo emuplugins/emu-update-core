@@ -240,27 +240,53 @@ if (!class_exists('Emu_Updater')) {
         }
 
         public function auto_reactivate_plugin_after_update($upgrader_object, $options) {
-            $plugin_file = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-
-            if ($options['action'] === 'update' && 
-                $options['type'] === 'plugin' && 
-                in_array($plugin_file, $options['plugins'])) 
-            {
-                // Renomeia diretório se necessário
-                if ($this->plugin_dir !== $this->plugin_slug) {
-                    $old_path = WP_PLUGIN_DIR . '/' . $this->plugin_dir;
-                    $new_path = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
-
-                    if (rename($old_path, $new_path)) {
-                        // Atualiza caminho do plugin após renomeação
-                        $plugin_file = $this->plugin_slug . '/' . $this->plugin_slug . '.php';
-                    }
+            // Verifica se a ação é de atualização de plugin e se o nosso plugin está na lista
+            if ($options['action'] !== 'update' || $options['type'] !== 'plugin') {
+                return;
+            }
+            
+            $updated = false;
+            foreach ($options['plugins'] as $plugin) {
+                if (strpos($plugin, $this->plugin_slug) !== false) {
+                    $updated = true;
+                    break;
                 }
-
-                // Reativa o plugin
-                if (!is_plugin_active($plugin_file)) {
-                    activate_plugin($plugin_file);
+            }
+            
+            if (!$updated) {
+                return;
+            }
+            
+            // Se o diretório instalado possui um sufixo (por exemplo, "meuplugin-main") e precisamos renomeá-lo
+            if ($this->plugin_dir !== $this->plugin_slug) {
+                $old_path = WP_PLUGIN_DIR . '/' . $this->plugin_dir;
+                $new_path = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
+                
+                if (rename($old_path, $new_path)) {
+                    // Atualiza a propriedade para o novo caminho
+                    $this->plugin_dir = $this->plugin_slug;
+                } else {
+                    error_log('Erro ao renomear a pasta do plugin.');
                 }
+            }
+            
+            // Define os dois possíveis caminhos para o arquivo principal do plugin
+            $possivel_arquivo_padrao = $this->plugin_slug . '/' . $this->plugin_slug . '.php';
+            $possivel_arquivo_main   = $this->plugin_slug . '/' . $this->plugin_slug . '-main.php';
+            
+            // Verifica qual dos arquivos existe
+            if (file_exists(WP_PLUGIN_DIR . '/' . $possivel_arquivo_padrao)) {
+                $plugin_file = $possivel_arquivo_padrao;
+            } elseif (file_exists(WP_PLUGIN_DIR . '/' . $possivel_arquivo_main)) {
+                $plugin_file = $possivel_arquivo_main;
+            } else {
+                error_log('Arquivo principal do plugin não encontrado.');
+                return;
+            }
+            
+            // Reativa o plugin, se ainda não estiver ativo
+            if (!is_plugin_active($plugin_file)) {
+                activate_plugin($plugin_file);
             }
         }
     }
