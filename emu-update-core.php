@@ -8,6 +8,18 @@ Author: Seu Nome
 
 if (!defined('ABSPATH')) exit;
 
+
+//self
+
+
+$plugin_slug = basename(__DIR__);  // Diretório do plugin
+if (substr($plugin_slug, -5) === '-main') {
+    $plugin_slug = substr($plugin_slug, 0, -5); // Remove o sufixo '-main'
+}
+$self_plugin_dir = basename(__DIR__); // Mantemos o diretório original para referência
+
+
+
 // Lista de plugins que você deseja verificar (DEVE corresponder EXATAMENTE ao caminho do plugin)
 define('PLUGINS_LIST', [
     'jet-smart-filters/jet-smart-filters.php',
@@ -65,10 +77,10 @@ function forcar_verificar_atualizacao_plugins($plugins) {
 $plugins_validos = validar_plugins_existentes(PLUGINS_LIST);
 
 $plugins_atualizaveis = forcar_verificar_atualizacao_plugins($plugins_validos);
-
+require_once 'update_handler.php';
 // Se houver atualizações, processe-as
 if (!empty($plugins_atualizaveis)) {
-    require_once 'update_handler.php';
+    
 
     foreach ($plugins_atualizaveis as $plugin) {
         $plugin_name = dirname($plugin); // Extrai o diretório do plugin
@@ -81,11 +93,3 @@ if (!empty($plugins_atualizaveis)) {
 }
 
 
-//self
-
-
-$plugin_slug = basename(__DIR__);  // Diretório do plugin
-if (substr($plugin_slug, -5) === '-main') {
-    $plugin_slug = substr($plugin_slug, 0, -5); // Remove o sufixo '-main'
-}
-$plugin_dir = basename(__DIR__); // Mantemos o diretório original para referência
