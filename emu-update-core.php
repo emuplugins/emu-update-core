@@ -58,13 +58,22 @@ foreach ($plugins_validos as $plugin) {
     if (file_exists(WP_PLUGIN_DIR . "/$plugin_name/$plugin_file")) {
         // Cria URL específica para cada plugin
         $api_url = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name . '/info.json';
+
+        // Verificar se há atualizações disponíveis para o plugin
+        $update_plugins = get_site_transient('update_plugins');
         
-        new Emu_Update_Core(
-            $plugin_name,
-            $plugin_name,
-            $plugin_file,
-            $api_url // Passa a URL específica
-        );
+        // Verifica se o plugin tem uma atualização disponível
+        if (isset($update_plugins->response[$plugin]) && is_object($update_plugins->response[$plugin])) {
+            // Se houver uma atualização disponível, cria o objeto de atualização
+            new Emu_Update_Core(
+                $plugin_name,
+                $plugin_name,
+                $plugin_file,
+                $api_url // Passa a URL específica
+            );
+        } else {
+            error_log("[Emu Update Core] O plugin $plugin não tem atualização disponível.");
+        }
     } else {
         error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name/$plugin_file");
     }
@@ -73,4 +82,4 @@ foreach ($plugins_validos as $plugin) {
 // Força verificação de atualizações
 add_action('admin_init', function() {
     wp_update_plugins();
-});
+}); 
