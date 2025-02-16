@@ -11,7 +11,7 @@ class Emu_Update_Core {
         $this->plugin_slug = $plugin_slug;
         $this->plugin_dir  = $plugin_dir;
         $this->plugin_file = $plugin_file;
-        $this->api_url    = $api_url ? $api_url : 'https://raw.githubusercontent.com/emuplugins/emu-update-core/main/' . $this->plugin_slug . '/info.json';
+        $this->api_url    = $api_url ? $api_url : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug . '/info.json';
     
         add_filter('plugins_api', array($this, 'plugin_info'), 20, 3);
         add_filter('site_transient_update_plugins', array($this, 'check_for_update'));
@@ -160,9 +160,6 @@ class Emu_Update_Core {
 // self
 
 
-
-
-<?php
 
 if (!class_exists('Emu_Updater')) {
     class Emu_Updater {
