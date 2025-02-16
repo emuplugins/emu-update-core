@@ -46,46 +46,17 @@ function validar_plugins_existentes($plugins) {
     return $plugins_validos;
 }
 
-// Função para verificar atualizações disponíveis
-function verificar_atualizacoes_disponiveis($plugins) {
-    // Força a verificação de atualizações
-    wp_update_plugins();
-
-    // Obtém o transient de atualizações
-    $updates = get_site_transient('update_plugins');
-
-    // DEBUG: Verifique o conteúdo do transient
-    error_log("[Emu Update Core] Transient update_plugins: " . print_r($updates, true));
-
-    $plugins_com_atualizacao = [];
-
-    if (!empty($updates->response)) {
-        foreach ($updates->response as $plugin_file => $update_info) {
-            if (in_array($plugin_file, $plugins)) {
-                $plugins_com_atualizacao[] = $plugin_file;
-            }
-        }
-    }
-
-    return $plugins_com_atualizacao;
-}
-
 // ========== EXECUÇÃO PRINCIPAL ========== //
 $plugins_validos = validar_plugins_existentes(PLUGINS_LIST);
 
-// Verifica quais plugins têm atualizações disponíveis
-$plugins_atualizaveis = verificar_atualizacoes_disponiveis($plugins_validos);
-
-// Cria instâncias da classe Emu_Update_Core apenas para plugins com atualizações disponíveis
-if (!empty($plugins_atualizaveis)) {
-    foreach ($plugins_atualizaveis as $plugin) {
-        $plugin_name = dirname($plugin); // Extrai o diretório do plugin
-        new Emu_Update_Core(
-            $plugin_name,       // Nome do plugin (ex: jet-smart-filters)
-            $plugin_name,       // Diretório do plugin
-            basename($plugin)   // Arquivo principal (ex: jet-smart-filters.php)
-        );
-    }
+// Cria instâncias da classe Emu_Update_Core para todos os plugins válidos
+foreach ($plugins_validos as $plugin) {
+    $plugin_name = dirname($plugin); // Extrai o diretório do plugin
+    new Emu_Update_Core(
+        $plugin_name,       // Nome do plugin (ex: jet-smart-filters)
+        $plugin_name,       // Diretório do plugin
+        basename($plugin)   // Arquivo principal (ex: jet-smart-filters.php)
+    );
 }
 
 // Força a verificação de atualizações após registrar todos os hooks
