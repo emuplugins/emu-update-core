@@ -31,7 +31,8 @@ define('PLUGINS_LIST', [
     'jet-tabs/jet-tabs.php',
     'jet-engine-dynamic-tables-module/jet-engine-dynamic-tables-module.php',
     'jet-menu/jet-menu.php',
-    'jet-form-builder-login-action/jet-form-builder-login-action.php'
+    'jet-form-builder-login-action/jet-form-builder-login-action.php',
+    'jet-woo-product-gallery/jet-woo-product-gallery.php'
 ]);
 
 // Função para validar plugins existentes
