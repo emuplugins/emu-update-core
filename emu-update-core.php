@@ -10,14 +10,15 @@ if (!defined('ABSPATH')) exit;
 
 require_once 'update_handler.php';
 
-//self
-$plugin_slug = basename(__DIR__);  // Diretório do plugin
+// Configuração do auto-update para o próprio plugin
+$plugin_slug = basename(__DIR__);
 if (substr($plugin_slug, -5) === '-main') {
-    $plugin_slug = substr($plugin_slug, 0, -5); // Remove o sufixo '-main'
+    $plugin_slug = substr($plugin_slug, 0, -5);
 }
-$self_plugin_dir = basename(__DIR__); // Mantemos o diretório original para referência
+$self_plugin_dir = basename(__DIR__);
+new Emu_Updater($plugin_slug, $self_plugin_dir);
 
-// Lista de plugins que você deseja verificar (DEVE corresponder EXATAMENTE ao caminho do plugin)
+// Lista de plugins para verificar atualizações
 define('PLUGINS_LIST', [
     'jet-smart-filters/jet-smart-filters.php',
     'jet-engine/jet-engine.php',
@@ -26,13 +27,13 @@ define('PLUGINS_LIST', [
     'jet-tabs/jet-tabs.php'
 ]);
 
-// Função para validar se os plugins da lista existem
+// Função para validar plugins existentes
 function validar_plugins_existentes($plugins) {
     if (!function_exists('get_plugins')) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
     }
 
-    $todos_plugins = get_plugins(); // Obtém todos os plugins instalados (ativos ou não)
+    $todos_plugins = get_plugins();
     $plugins_validos = [];
 
     foreach ($plugins as $plugin) {
@@ -46,20 +47,30 @@ function validar_plugins_existentes($plugins) {
     return $plugins_validos;
 }
 
-// ========== EXECUÇÃO PRINCIPAL ========== //
+// Execução principal
 $plugins_validos = validar_plugins_existentes(PLUGINS_LIST);
 
-// Cria instâncias da classe Emu_Update_Core para todos os plugins válidos
 foreach ($plugins_validos as $plugin) {
-    $plugin_name = dirname($plugin); // Extrai o diretório do plugin
-    new Emu_Update_Core(
-        $plugin_name,       // Nome do plugin (ex: jet-smart-filters)
-        $plugin_name,       // Diretório do plugin
-        basename($plugin)   // Arquivo principal (ex: jet-smart-filters.php)
-    );
+    $plugin_name = dirname($plugin);
+    $plugin_file = basename($plugin);
+    
+    // Verifica se o arquivo principal do plugin existe
+    if (file_exists(WP_PLUGIN_DIR . "/$plugin_name/$plugin_file")) {
+        // Cria URL específica para cada plugin
+        $api_url = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name . '/info.json';
+        
+        new Emu_Update_Core(
+            $plugin_name,
+            $plugin_name,
+            $plugin_file,
+            $api_url // Passa a URL específica
+        );
+    } else {
+        error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name/$plugin_file");
+    }
 }
 
-// Força a verificação de atualizações após registrar todos os hooks
+// Força verificação de atualizações
 add_action('admin_init', function() {
     wp_update_plugins();
 });
