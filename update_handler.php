@@ -165,6 +165,7 @@ if (!class_exists('Emu_Updater')) {
     class Emu_Updater {
         private $api_url;
         private $plugin_slug;
+        private $plugin_dir; // Adicione esta linha
         private $self_plugin_dir;
         
         public function __construct($plugin_slug, $self_plugin_dir) {
