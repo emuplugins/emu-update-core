@@ -81,6 +81,8 @@ if (!empty($plugins_atualizaveis)) {
 }
 
 
+//self
+
 
 $plugin_slug = basename(__DIR__);  // Diretório do plugin
 if (substr($plugin_slug, -5) === '-main') {
