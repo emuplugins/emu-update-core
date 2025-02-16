@@ -155,8 +155,6 @@ class Emu_Update_Core {
     }
 } 
 
-
-
 // Self Update
 
 if (!class_exists('Emu_Updater')) {

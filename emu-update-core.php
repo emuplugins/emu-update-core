@@ -8,18 +8,17 @@ Author: Seu Nome
 
 if (!defined('ABSPATH')) exit;
 
+// Sistema de atualização do plugin
+
 $plugin_slug = basename(__DIR__);
 if (substr($plugin_slug, -5) === '-main') {
     $plugin_slug = substr($plugin_slug, 0, -5);
 }
 $self_plugin_dir = basename(__DIR__);
 
-// Inclui o handler de atualização
 require_once plugin_dir_path(__FILE__) . 'update-handler.php';
 
 new Emu_Updater($plugin_slug, $self_plugin_dir);
-
-add_action('upgrader_process_complete', 'emu_handle_plugin_update', 10, 2);
 
 // Interceptar atualizações de terceiros
 
