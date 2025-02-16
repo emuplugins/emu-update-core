@@ -153,7 +153,7 @@ class Emu_Update_Core {
             }
         }
     }
-}
+} 
 
 
 
