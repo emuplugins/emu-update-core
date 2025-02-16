@@ -2,7 +2,7 @@
 /*
 Plugin Name: Emu Update Core
 Description: Intercepta as atualizações de qualquer plugin e altera a URL de download com base em um JSON remoto.
-Version: 1.3
+Version: 0.1
 Author: Seu Nome
 */
 
