@@ -24,6 +24,7 @@ define('PLUGINS_LIST', [
     'jet-engine/jet-engine.php',
     'jet-elements/jet-elements.php',
     'jet-popup/jet-popup.php',
+    'jet-tabs/jet-tabs.php',
     'jet-tabs/jet-tabs.php'
 ]);
 
