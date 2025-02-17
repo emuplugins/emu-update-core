@@ -281,13 +281,6 @@ if (substr($plugin_slug, -5) === '-main') {
 $desired_plugin_dir = $plugin_slug; // Nome que desejamos para a pasta
 $self_plugin_dir = $plugin_dir_unsanitized; // Nome atual (pode conter "-main")
 
-// Filtro para exibir o link de "Verificar Atualizações"
-add_filter('plugin_action_links_' . $self_plugin_dir . '/' . $plugin_slug . '.php', function($actions) use ($self_plugin_dir) {
-    $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
-    $actions['check_update'] = '<a href="' . esc_url($url) . '">Verificar Atualizações</a>';
-    return $actions;
-});
-
 // Após a instalação/atualização, move o plugin para o diretório desejado
 add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir) {
     global $wp_filesystem;

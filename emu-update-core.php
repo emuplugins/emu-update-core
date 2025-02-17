@@ -14,20 +14,6 @@ if (substr($plugin_slug, -5) === '-main') {
 }
 $self_plugin_dir = basename(__DIR__);
 
-// Impedir qualquer tentativa de carregar traduções aqui
-
-add_action('init', function () use ($plugin_slug) {
-    remove_action('init', 'load_plugin_textdomain', 10);
-}, 9999);
-
-add_filter('load_textdomain_mofile', function ($mofile, $domain) use ($plugin_slug) {
-    // Impede o carregamento da tradução para o seu plugin, verificando o slug
-    if ($domain === $plugin_slug) {
-        return false;  // Retorna falso para não carregar o arquivo de tradução
-    }
-    return $mofile;
-}, 10, 2);
-
 // Sistema de atualização do plugin
 
 require_once plugin_dir_path(__FILE__) . 'update-handler.php';
@@ -101,11 +87,3 @@ foreach ($plugins_validos as $plugin) {
         error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name/$plugin_file");
     }
 }
-
-// Força verificação de atualizações
-add_action('admin_init', function() {
-    if (is_admin()) {
-        return;
-    }
-    wp_update_plugins();
-});
