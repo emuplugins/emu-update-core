@@ -8,11 +8,19 @@ Author: Emu Plugins
 
 if (!defined('ABSPATH')) exit;
 
-// Cancela qualquer tentativa de traduzir o plugin
+// Impedir qualquer tentativa de carregar traduções aqui
 
-add_action('init', function () {
-    load_plugin_textdomain('emu-easy-attribute', false, false);
-});
+add_action('init', function () use ($plugin_slug) {
+    remove_action('init', 'load_plugin_textdomain', 10);
+}, 9999);
+
+add_filter('load_textdomain_mofile', function ($mofile, $domain) use ($plugin_slug) {
+    // Impede o carregamento da tradução para o seu plugin, verificando o slug
+    if ($domain === $plugin_slug) {
+        return false;  // Retorna falso para não carregar o arquivo de tradução
+    }
+    return $mofile;
+}, 10, 2);
 
 // Sistema de atualização do plugin
 
