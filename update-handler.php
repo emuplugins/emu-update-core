@@ -112,14 +112,15 @@ class Emu_Update_Core {
 
     public function check_for_update($transient) {
 
-        // Executa a verificação apenas uma vez por execução
-        static $already_checked = false;
-        if ($already_checked) {
+        if (empty($transient->checked)) {
             return $transient;
         }
-        $already_checked = true;
-
-        if (empty($transient->checked)) return $transient;
+    
+        // Garante que a verificação ocorra apenas uma vez por execução PARA ESTE PLUGIN
+        if (isset($transient->emu_updater_checked) && $transient->emu_updater_checked) {
+            return $transient;
+        }
+        $transient->emu_updater_checked = true; // Flag apenas para este carregamento
     
         $remote = wp_remote_get($this->api_url);
         if (is_wp_error($remote)) {
@@ -219,16 +220,15 @@ if (!class_exists('Emu_Updater')) {
 
            public function check_for_update($transient) {
 
-            // Executa a verificação apenas uma vez por execução
-            static $already_checked = false;
-            if ($already_checked) {
-                return $transient;
-            }
-            $already_checked = true;
-
             if (empty($transient->checked)) {
                 return $transient;
             }
+        
+            // Garante que a verificação ocorra apenas uma vez por execução PARA ESTE PLUGIN
+            if (isset($transient->emu_updater_checked) && $transient->emu_updater_checked) {
+                return $transient;
+            }
+            $transient->emu_updater_checked = true; // Flag apenas para este carregamento
 
             $remote = wp_remote_get($this->api_url);
             if (is_wp_error($remote)) {
