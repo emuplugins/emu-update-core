@@ -8,6 +8,13 @@ Author: Emu Plugins
 
 if (!defined('ABSPATH')) exit;
 
+// Cancela qualquer tentativa de traduzir o plugin
+
+add_action('init', function () {
+    load_plugin_textdomain('emu-easy-attribute', false, false);
+});
+
+
 // Sistema de atualização do plugin
 
 $plugin_slug = basename(__DIR__);
