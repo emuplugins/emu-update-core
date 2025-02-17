@@ -159,7 +159,6 @@ if (!class_exists('Emu_Updater')) {
 
             add_filter('plugins_api', [$this, 'plugin_info'], 20, 3);
             add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
-            add_action('upgrader_process_complete', [$this, 'auto_reactivate_plugin_after_update'], 10, 2);
             add_action('wp_loaded', [$this, 'clear_plugin_transients']); // Limpa os transientes sempre que a página for recarregada
         }
 
@@ -242,28 +241,6 @@ if (!class_exists('Emu_Updater')) {
             set_transient($cache_key, $plugin_info, HOUR_IN_SECONDS);
 
             return $plugin_info;
-        }
-
-        public function auto_reactivate_plugin_after_update($upgrader_object, $options) {
-            $plugin_file = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-
-            if ($options['action'] === 'update' &&
-                $options['type'] === 'plugin' &&
-                in_array($plugin_file, $options['plugins'])
-            ) {
-                if ($this->plugin_dir !== $this->plugin_slug) {
-                    $old_path = WP_PLUGIN_DIR . '/' . $this->plugin_dir;
-                    $new_path = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
-
-                    if (rename($old_path, $new_path)) {
-                        $plugin_file = $this->plugin_slug . '/' . $this->plugin_slug . '.php';
-                    }
-                }
-
-                if (!is_plugin_active($plugin_file)) {
-                    activate_plugin($plugin_file);
-                }
-            }
         }
 
         public function clear_plugin_transients() {
