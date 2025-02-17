@@ -304,13 +304,13 @@ add_filter('upgrader_post_install', function($response, $hook_extra, $result) us
     return $response;
 }, 10, 3);
 
-// Após atualização, renomeia o diretório (se necessário) e reativa o plugin
 add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
     $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
     
-    if (isset($options['action'], $options['type']) && 
+    if (isset($options['action'], $options['type'], $options['plugins']) && 
         $options['action'] === 'update' && 
         $options['type'] === 'plugin' && 
+        is_array($options['plugins']) && 
         in_array($current_plugin_file, $options['plugins'])) {
         
         $plugin_file = $current_plugin_file;
