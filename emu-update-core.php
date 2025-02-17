@@ -8,6 +8,12 @@ Author: Emu Plugins
 
 if (!defined('ABSPATH')) exit;
 
+$plugin_slug = basename(__DIR__);
+if (substr($plugin_slug, -5) === '-main') {
+    $plugin_slug = substr($plugin_slug, 0, -5);
+}
+$self_plugin_dir = basename(__DIR__);
+
 // Impedir qualquer tentativa de carregar traduções aqui
 
 add_action('init', function () use ($plugin_slug) {
@@ -23,12 +29,6 @@ add_filter('load_textdomain_mofile', function ($mofile, $domain) use ($plugin_sl
 }, 10, 2);
 
 // Sistema de atualização do plugin
-
-$plugin_slug = basename(__DIR__);
-if (substr($plugin_slug, -5) === '-main') {
-    $plugin_slug = substr($plugin_slug, 0, -5);
-}
-$self_plugin_dir = basename(__DIR__);
 
 require_once plugin_dir_path(__FILE__) . 'update-handler.php';
 
