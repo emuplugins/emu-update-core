@@ -14,7 +14,6 @@ add_action('init', function () {
     load_plugin_textdomain('emu-easy-attribute', false, false);
 });
 
-
 // Sistema de atualização do plugin
 
 $plugin_slug = basename(__DIR__);
@@ -29,7 +28,6 @@ new Emu_Updater($plugin_slug, $self_plugin_dir);
 
 // Interceptar atualizações de terceiros
 
-// Lista de plugins para verificar atualizações
 define('PLUGINS_LIST', [
     'jet-smart-filters/jet-smart-filters.php',
     'jet-engine/jet-engine.php',
@@ -44,6 +42,7 @@ define('PLUGINS_LIST', [
 ]);
 
 // Função para validar plugins existentes
+
 function validar_plugins_existentes($plugins) {
     if (!function_exists('get_plugins')) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -97,5 +96,8 @@ foreach ($plugins_validos as $plugin) {
 
 // Força verificação de atualizações
 add_action('admin_init', function() {
+    if (is_admin()) {
+        return;
+    }
     wp_update_plugins();
 });

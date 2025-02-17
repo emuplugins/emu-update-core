@@ -271,50 +271,50 @@ if (substr($plugin_slug, -5) === '-main') {
 $desired_plugin_dir = $plugin_slug; // Nome que desejamos para a pasta
 $self_plugin_dir = $plugin_dir_unsanitized; // Nome atual (pode conter "-main")
 
-// Executa apenas se estiver em uma página administrativa relacionada a atualizações
-add_action('admin_init', function() use ($self_plugin_dir, $plugin_slug) {
+
+add_action('current_screen', function($screen) use ($self_plugin_dir, $plugin_slug) {
     if (!is_admin()) {
         return;
     }
 
-    $screen = get_current_screen();
-    if (!$screen) {
-        return;
-    }
-
+    // Verifica se a tela atual é uma das permitidas
     $allowed_screens = [
-        'update-core',     // Página principal de atualizações
-        'plugins',         // Lista de plugins (onde há botões de atualização)
-        'themes',          // Lista de temas
-        'plugin-install',  // Instalação de plugins (onde também há atualizações)
-        'theme-install'    // Instalação de temas
+        'update-core',
+        'plugins',
+        'themes',
+        'plugin-install',
+        'theme-install'
     ];
 
     if (in_array($screen->id, $allowed_screens)) {
-        // Adicionar link "Verificar Atualizações"
-        add_filter("plugin_action_links_{$self_plugin_dir}/{$plugin_slug}.php", function($actions) use ($self_plugin_dir) {
-            $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
-            $actions['check_update'] = '<a href="' . esc_url($url) . '">Verificar Atualizações</a>';
-            return $actions;
-        });
 
-        // Ação para forçar a verificação de atualizações
-        add_action('admin_init', function() use ($self_plugin_dir) {
-            if (isset($_GET['force-check-update']) && $_GET['force-check-update'] === $self_plugin_dir) {
-                check_admin_referer("force_check_update_$self_plugin_dir");
-                delete_site_transient('update_plugins');
-                wp_safe_redirect(admin_url("plugins.php?checked-update=$self_plugin_dir"));
-                exit;
-            }
-        });
-
-        // Notificação após a verificação
-        add_action('admin_notices', function() use ($self_plugin_dir) {
-            if (isset($_GET['checked-update']) && $_GET['checked-update'] === $self_plugin_dir) {
-                echo '<div class="notice notice-success"><p>Verificação de atualizações concluída!</p></div>';
-            }
-        });
+// Ação para forçar a verificação de atualizações
+add_action('admin_init', function() use ($self_plugin_dir) {
+    if (isset($_GET['force-check-update']) && $_GET['force-check-update'] === $self_plugin_dir) {
+        check_admin_referer("force_check_update_$self_plugin_dir");
+        delete_site_transient('update_plugins');
+        wp_safe_redirect(admin_url("plugins.php?checked-update=$self_plugin_dir"));
+        exit;
     }
+});
+
+// Notificação após a verificação
+add_action('admin_notices', function() use ($self_plugin_dir) {
+    if (isset($_GET['checked-update']) && $_GET['checked-update'] === $self_plugin_dir) {
+        echo '<div class="notice notice-success"><p>Verificação de atualizações concluída!</p></div>';
+    }
+});
+}
+
+});
+    
+
+
+// Filtro para exibir o link de "Verificar Atualizações"
+add_filter('plugin_action_links_' . $self_plugin_dir . '/' . $plugin_slug . '.php', function($actions) use ($self_plugin_dir) {
+    $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
+    $actions['check_update'] = '<a href="' . esc_url($url) . '">Verificar Atualizações</a>';
+    return $actions;
 });
 
 // Após a instalação/atualização, move o plugin para o diretório desejado
@@ -325,43 +325,41 @@ add_filter('upgrader_post_install', function($response, $hook_extra, $result) us
     $current_destination = $result['destination'];
     
     if ($current_destination !== $proper_destination) {
-        if ($wp_filesystem->move($current_destination, $proper_destination)) {
-            $result['destination'] = $proper_destination;
-        } else {
-            error_log("Erro ao mover o diretório do plugin: $current_destination -> $proper_destination");
-        }
+        $wp_filesystem->move($current_destination, $proper_destination);
+        $result['destination'] = $proper_destination;
     }
     
-    return $result;
+    return $response;
 }, 10, 3);
 
 // Após a atualização, renomeia o diretório (se necessário) e reativa o plugin
 add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
-    if (!isset($options['action'], $options['type']) || 
-        $options['action'] !== 'update' || 
-        $options['type'] !== 'plugin' || 
-        !isset($options['plugins'])) {
-        return;
-    }
-
-    $current_plugin_file = "$self_plugin_dir/$plugin_slug.php";
-
-    if (in_array($current_plugin_file, $options['plugins'])) {
-        $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
-        $new_path = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
-
+    // Caminho atual do arquivo do plugin (considerando a pasta atual)
+    $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
+    
+    if (isset($options['action'], $options['type']) && 
+        $options['action'] === 'update' && 
+        $options['type'] === 'plugin' && 
+        in_array($current_plugin_file, $options['plugins'])) {
+        
+        $plugin_file = $current_plugin_file;
+        
         // Se o diretório instalado não for o desejado, renomeia-o
         if ($self_plugin_dir !== $desired_plugin_dir) {
+            $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
+            $new_path = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+            
             if (rename($old_path, $new_path)) {
-                $current_plugin_file = "$desired_plugin_dir/$plugin_slug.php";
+                // Atualiza o caminho do arquivo do plugin
+                $plugin_file = $desired_plugin_dir . '/' . $plugin_slug . '.php';
             } else {
                 error_log('Erro ao renomear a pasta do plugin.');
             }
         }
-
+        
         // Reativa o plugin se não estiver ativo
-        if (!is_plugin_active(WP_PLUGIN_DIR . '/' . $current_plugin_file)) {
-            $result = activate_plugin($current_plugin_file);
+        if (!is_plugin_active($plugin_file)) {
+            $result = activate_plugin($plugin_file);
             if (is_wp_error($result)) {
                 error_log('Erro ao reativar o plugin: ' . $result->get_error_message());
             }
