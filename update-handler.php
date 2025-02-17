@@ -180,6 +180,7 @@ class Emu_Update_Core {
     }
 }
 // Self Update
+// Self Update
 
 if (!class_exists('Emu_Updater')) {
     class Emu_Updater {
