@@ -260,22 +260,24 @@ if (!class_exists('Emu_Updater')) {
 
         public function auto_reactivate_plugin_after_update($upgrader_object, $options) {
             $plugin_file = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-
+        
             if ($options['action'] === 'update' && 
-                $options['type'] === 'plugin' && 
+                $options['type'] === 'plugin' &&
+                isset($options['plugins']) && 
+                is_array($options['plugins']) && 
                 in_array($plugin_file, $options['plugins'])) 
             {
                 // Renomeia diretório se necessário
                 if ($this->plugin_dir !== $this->plugin_slug) {
                     $old_path = WP_PLUGIN_DIR . '/' . $this->plugin_dir;
                     $new_path = WP_PLUGIN_DIR . '/' . $this->plugin_slug;
-
+        
                     if (rename($old_path, $new_path)) {
                         // Atualiza caminho do plugin após renomeação
                         $plugin_file = $this->plugin_slug . '/' . $this->plugin_slug . '.php';
                     }
                 }
-
+        
                 // Reativa o plugin
                 if (!is_plugin_active($plugin_file)) {
                     activate_plugin($plugin_file);
