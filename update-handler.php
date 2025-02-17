@@ -20,35 +20,27 @@ class Emu_Update_Core {
         add_action('upgrader_install_package_result', array($this, 'verify_installation'), 10, 2);
     }
 
-    private function sanitize_download_url($url) {
-        $parts = parse_url($url);
-        if (!isset($parts['path'])) return $url;
-
-        $path_parts = pathinfo($parts['path']);
-        $new_path = rtrim($path_parts['dirname'], '/') . '/' . $this->plugin_slug . '.zip';
-        
-        $parts['path'] = $new_path;
-        return $this->build_url($parts);
+    private function is_plugin_install_page() {
+        global $pagenow;
+        return $pagenow === 'plugin-install.php';
     }
 
-    private function build_url($parts) {
-        $url = '';
-        if (isset($parts['scheme'])) $url .= $parts['scheme'] . '://';
-        if (isset($parts['host'])) $url .= $parts['host'];
-        if (isset($parts['port'])) $url .= ':' . $parts['port'];
-        $url .= $parts['path'];
-        if (isset($parts['query'])) $url .= '?' . $parts['query'];
-        if (isset($parts['fragment'])) $url .= '#' . $parts['fragment'];
-        return $url;
+    private function is_plugin_update_page() {
+        global $pagenow;
+        return $pagenow === 'update.php';
+    }
+
+    private function is_plugin_being_updated($hook_extra) {
+        $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
+        return isset($hook_extra['plugin']) && $hook_extra['plugin'] === $plugin_basename;
     }
 
     public function fix_plugin_directory($source, $remote_source, $upgrader, $hook_extra) {
-        global $wp_filesystem;
-
-        $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
-        if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $plugin_basename) {
+        if ($this->is_plugin_install_page() || !$this->is_plugin_being_updated($hook_extra)) {
             return $source;
         }
+
+        global $wp_filesystem;
 
         $temp_dir = basename($source);
         if ($temp_dir === $this->plugin_slug) {
@@ -66,12 +58,12 @@ class Emu_Update_Core {
     }
 
     public function verify_installation($result, $hook_extra) {
-        $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
-        
-        if (!isset($hook_extra['plugin']) || $hook_extra['plugin'] !== $plugin_basename) {
+        if ($this->is_plugin_install_page() || !$this->is_plugin_being_updated($hook_extra)) {
             return $result;
         }
 
+        $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
+        
         if (!file_exists(WP_PLUGIN_DIR . '/' . $plugin_basename)) {
             error_log("Arquivo do plugin não encontrado após instalação: " . WP_PLUGIN_DIR . '/' . $plugin_basename);
             return new WP_Error('install_failed', 'Arquivo principal do plugin não encontrado');
@@ -107,52 +99,44 @@ class Emu_Update_Core {
     }
 
     public function check_for_update($transient) {
-    if (empty($transient->checked)) {
+        if (empty($transient->checked)) {
+            return $transient;
+        }
+
+        $remote = wp_remote_get($this->api_url);
+        if (is_wp_error($remote)) {
+            return $transient;
+        }
+
+        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info) {
+            return $transient;
+        }
+
+        $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
+        $plugin_file_full_path = WP_PLUGIN_DIR . '/' . $plugin_file_path;
+
+        $plugin_headers = get_file_data($plugin_file_full_path, array('Version' => 'Version'));
+        $current_version = $plugin_headers['Version'];
+
+        if (version_compare($current_version, $plugin_info->version, '<')) {
+            $transient->response[$plugin_file_path] = (object) [
+                'slug'        => $this->plugin_slug,
+                'plugin'      => $plugin_file_path,
+                'new_version' => $plugin_info->version,
+                'package'     => $plugin_info->download_url,
+                'tested'      => $plugin_info->tested,
+                'requires'    => $plugin_info->requires
+            ];
+        }
         return $transient;
     }
-
-    $remote = wp_remote_get($this->api_url);
-    if (is_wp_error($remote)) {
-        return $transient;
-    }
-
-    $plugin_info = json_decode(wp_remote_retrieve_body($remote));
-    if (!$plugin_info) {
-        return $transient;
-    }
-
-    // Caminho correto considerando o diretório real
-    $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-    $plugin_file_full_path = WP_PLUGIN_DIR . '/' . $plugin_file_path;
-
-    // Usando get_file_data para obter a versão do plugin
-    $plugin_headers = get_file_data($plugin_file_full_path, array('Version' => 'Version'));
-    $current_version = $plugin_headers['Version'];
-
-    if (version_compare($current_version, $plugin_info->version, '<')) {
-        // Chave corrigida usando diretório real
-        $transient->response[$plugin_file_path] = (object) [
-            'slug'        => $this->plugin_slug,
-            'plugin'      => $plugin_file_path,
-            'new_version' => $plugin_info->version,
-            'package'     => $plugin_info->download_url,
-            'tested'      => $plugin_info->tested,
-            'requires'    => $plugin_info->requires
-        ];
-    }
-    return $transient;
-    }
-
-
 
     public function auto_reactivate_plugin_after_update($upgrader_object, $options) {
-        // Verifica se a ação é de atualização e o tipo é plugin
         if ('update' === $options['action'] && 'plugin' === $options['type']) {
-            // Verifica se a chave 'plugins' existe e é um array
             if (isset($options['plugins']) && is_array($options['plugins'])) {
                 $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
                 
-                // Verifica se o plugin atual está na lista de plugins atualizados
                 if (in_array($plugin_basename, $options['plugins']) && !is_plugin_active($plugin_basename)) {
                     activate_plugin($plugin_basename);
                 }
@@ -207,28 +191,23 @@ if (!class_exists('Emu_Updater')) {
                 return $transient;
             }
             
-            // Cria uma flag única para cada plugin
             $flag_key = 'emu_updater_checked_' . $this->plugin_slug;
             if (isset($transient->$flag_key) && $transient->$flag_key) {
                 return $transient;
             }
             $transient->$flag_key = true;
             
-            // Obtém informações sobre o plugin
             $plugin_info = $this->get_plugin_info();
             if (!$plugin_info) {
                 return $transient;
             }
             
-            // Define o caminho do plugin
             $plugin_basename  = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
             $plugin_file_path = WP_PLUGIN_DIR . '/' . $plugin_basename;
             
-            // Obtém a versão atual a partir dos cabeçalhos do plugin
             $plugin_headers = get_file_data($plugin_file_path, ['Version' => 'Version']);
             $current_version = $plugin_headers['Version'];
             
-            // Se houver nova versão, adiciona as informações ao transient
             if (version_compare($current_version, $plugin_info->version, '<')) {
                 $transient->response[$plugin_basename] = (object) [
                     'slug'        => $this->plugin_slug,
@@ -245,7 +224,6 @@ if (!class_exists('Emu_Updater')) {
 
         private function get_plugin_info() {
             $cache_key = 'emu_plugin_info_' . $this->plugin_slug;
-            // Tenta recuperar as informações via transient (único para cada plugin)
             $plugin_info = get_transient($cache_key);
             if ($plugin_info !== false) {
                 return $plugin_info;
@@ -261,7 +239,6 @@ if (!class_exists('Emu_Updater')) {
                 return false;
             }
 
-            // Armazena as informações por 1 hora
             set_transient($cache_key, $plugin_info, HOUR_IN_SECONDS);
 
             return $plugin_info;
@@ -289,7 +266,6 @@ if (!class_exists('Emu_Updater')) {
             }
         }
 
-        // Limpa o transient ao recarregar a página
         public function clear_plugin_transients() {
             $cache_key = 'emu_plugin_info_' . $this->plugin_slug;
             delete_transient($cache_key);
