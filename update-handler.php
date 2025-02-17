@@ -119,7 +119,7 @@ class Emu_Update_Core {
         if (!$plugin_info) return $transient;
     
         $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
-        $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_basename);
+        $plugin_data = get_file_data(ABSPATH . 'wp-content/plugins/' . $plugin_basename);
         $current_version = $plugin_data['Version'];
     
         // Verifica se a versão atual do plugin é menor que a versão remota
@@ -219,7 +219,7 @@ if (!class_exists('Emu_Updater')) {
 
             // Caminho correto considerando o diretório real
             $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-            $current_version = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file_path)['Version'];
+            $current_version = get_file_data(ABSPATH . 'wp-content/plugins/' . $plugin_file_path)['Version'];
 
             if (version_compare($current_version, $plugin_info->version, '<')) {
                 // Chave corrigida usando diretório real
