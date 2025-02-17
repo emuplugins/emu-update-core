@@ -111,40 +111,37 @@ class Emu_Update_Core {
     }
 
     public function check_for_update($transient) {
-    if (empty($transient->checked)) {
+        if (empty($transient->checked)) return $transient;
+    
+        $remote = wp_remote_get($this->api_url);
+        if (is_wp_error($remote)) {
+            error_log('Erro ao buscar atualização: ' . $remote->get_error_message());
+            return $transient;
+        }
+    
+        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info) return $transient;
+    
+        $plugin_basename = $this->plugin_dir . '/' . $this->plugin_file;
+        $plugin_file_path = WP_PLUGIN_DIR . '/' . $plugin_basename;
+    
+        // Usando get_file_data para obter a versão do plugin
+        $plugin_headers = get_file_data($plugin_file_path, array('Version' => 'Version'));
+        $current_version = $plugin_headers['Version'];
+    
+        // Verifica se a versão atual do plugin é menor que a versão remota
+        if (version_compare($current_version, $plugin_info->version, '<')) {
+            $transient->response[$plugin_basename] = (object) array(
+                'slug' => $this->plugin_slug,
+                'plugin' => $plugin_basename,
+                'new_version' => $plugin_info->version,
+                'package' => $plugin_info->download_url,
+                'tested' => $plugin_info->tested,
+                'requires' => $plugin_info->requires,
+            );
+        } 
+    
         return $transient;
-    }
-
-    $remote = wp_remote_get($this->api_url);
-    if (is_wp_error($remote)) {
-        return $transient;
-    }
-
-    $plugin_info = json_decode(wp_remote_retrieve_body($remote));
-    if (!$plugin_info) {
-        return $transient;
-    }
-
-    // Caminho correto considerando o diretório real
-    $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-    $plugin_file_full_path = WP_PLUGIN_DIR . '/' . $plugin_file_path;
-
-    // Usando get_file_data para obter a versão do plugin
-    $plugin_headers = get_file_data($plugin_file_full_path, array('Version' => 'Version'));
-    $current_version = $plugin_headers['Version'];
-
-    if (version_compare($current_version, $plugin_info->version, '<')) {
-        // Chave corrigida usando diretório real
-        $transient->response[$plugin_file_path] = (object) [
-            'slug'        => $this->plugin_slug,
-            'plugin'      => $plugin_file_path,
-            'new_version' => $plugin_info->version,
-            'package'     => $plugin_info->download_url,
-            'tested'      => $plugin_info->tested,
-            'requires'    => $plugin_info->requires
-        ];
-    }
-    return $transient;
     }
 
 
