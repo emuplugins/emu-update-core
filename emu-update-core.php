@@ -8,6 +8,15 @@ Author: Emu Plugins
 
 if (!defined('ABSPATH')) exit;
 
+add_action('admin_init', function() {
+    // Forçar a verificação de atualizações para todos os plugins
+    if (function_exists('get_plugin_updates')) {
+        get_plugin_updates(); // Verifica se há atualizações para todos os plugins
+    }
+});
+
+
+
 $plugin_slug = basename(__DIR__);
 if (substr($plugin_slug, -5) === '-main') {
     $plugin_slug = substr($plugin_slug, 0, -5);
@@ -87,3 +96,5 @@ foreach ($plugins_validos as $plugin) {
         error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name/$plugin_file");
     }
 }
+
+
