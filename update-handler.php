@@ -326,22 +326,23 @@ if (substr($plugin_slug, -5) === '-main') {
 $desired_plugin_dir = $plugin_slug;
 $self_plugin_dir = $plugin_dir_unsanitized;
 
+// Exibe o link de "Verificar Atualizações" na listagem de plugins
+add_filter('plugin_action_links_' . $self_plugin_dir . '/' . $plugin_slug . '.php', function($actions) use ($self_plugin_dir) {
+    $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
+    $actions['check_update'] = '<a href="' . esc_url($url) . '">Verificar Atualizações</a>';
+    return $actions;
+});
+
 // Após instalação/atualização, move o plugin para o diretório desejado
-add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir, $self_plugin_dir, $plugin_slug) {
-    // Verifica se o plugin sendo instalado/atualizado é o correto
-    $plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
+add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir) {
+    global $wp_filesystem;
     
-    // Se o plugin sendo instalado/atualizado for o desejado
-    if (isset($result['plugins']) && in_array($plugin_file, $result['plugins'])) {
-        global $wp_filesystem;
-        
-        $proper_destination = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
-        $current_destination = $result['destination'];
-        
-        if ($current_destination !== $proper_destination) {
-            $wp_filesystem->move($current_destination, $proper_destination);
-            $result['destination'] = $proper_destination;
-        }
+    $proper_destination = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+    $current_destination = $result['destination'];
+    
+    if ($current_destination !== $proper_destination) {
+        $wp_filesystem->move($current_destination, $proper_destination);
+        $result['destination'] = $proper_destination;
     }
     
     return $response;
@@ -349,12 +350,14 @@ add_filter('upgrader_post_install', function($response, $hook_extra, $result) us
 
 // Após atualização, renomeia o diretório (se necessário) e reativa o plugin
 add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
-    $plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
+    $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
     
     if (isset($options['action'], $options['type']) && 
         $options['action'] === 'update' && 
         $options['type'] === 'plugin' && 
-        in_array($plugin_file, $options['plugins'])) {
+        in_array($current_plugin_file, $options['plugins'])) {
+        
+        $plugin_file = $current_plugin_file;
         
         if ($self_plugin_dir !== $desired_plugin_dir) {
             $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
