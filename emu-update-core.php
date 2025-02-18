@@ -41,7 +41,8 @@ define('PLUGINS_LIST', [
     'jet-menu/jet-menu.php',
     'jet-form-builder-login-action/jet-form-builder-login-action.php',
     'jet-woo-product-gallery/jet-woo-product-gallery.php',
-    'perfmatters/perfmatter.php'
+    'perfmatters/perfmatter.php',
+    'jet-search/jet-search.php'
 ]);
 
 // Função para validar plugins existentes
