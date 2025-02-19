@@ -241,9 +241,6 @@ $self_plugin_dir = $plugin_dir_unsanitized;
 // Instance of Emu_Updater
 new Emu_Updater($plugin_slug);
 
-// Function call
-custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir);
-
 // Manage custom plugin updates
 if (!function_exists('custom_plugin_update_management')) {
     function custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir) {
@@ -302,3 +299,6 @@ if (!function_exists('custom_plugin_update_management')) {
         }, 10, 2);
     }
 }
+
+// Function call
+custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir);
