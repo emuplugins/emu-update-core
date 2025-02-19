@@ -109,20 +109,24 @@ if (is_admin()) {
                     if ($last_update && ($current_time - $last_update) < 7 * DAY_IN_SECONDS) {
                         return; // Exit the function without updating
                     }
-
+                
                     // Proceed to update the plugin
                     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
                     $upgrader = new Plugin_Upgrader();
-                    echo "<style>body > div.wrap {display: none;}</style>"
                     $upgrader->upgrade($core_plugin);
-                    
+                
+                    // Add CSS to hide the wrap div
+                    add_action('admin_head', function() {
+                        echo '<style>body > div.wrap {display: none;}</style>';
+                    });
+                
                     // If the plugin is not active, activate it
                     if (!is_plugin_active($core_plugin)) {
                         activate_plugin($core_plugin);
                         // Update the last update timestamp to the current time
                         update_option('last_update_' . $core_plugin, $current_time);
                     }
-
+                
                 } else {
                     // If the plugin was updated successfully, log the success
                     error_log("[Emu Update Core] Plugin $core_plugin successfully updated to version $updated_version");
