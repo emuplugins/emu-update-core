@@ -34,54 +34,51 @@ define('PLUGINS_LIST', [
 ]);
 
 // Função para validar plugins existentes
-
-function validar_plugins_existentes($plugins) {
+function validar_plugins_existentes($plugins_core) {
     if (!function_exists('get_plugins')) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
     }
 
-    $todos_plugins = get_plugins();
-    $plugins_validos = [];
+    $todos_plugins_core = get_plugins();
+    $plugins_validos_core = [];
 
-    foreach ($plugins as $plugin) {
-        if (array_key_exists($plugin, $todos_plugins)) {
-            $plugins_validos[] = $plugin;
+    foreach ($plugins_core as $plugin_core) {
+        if (array_key_exists($plugin_core, $todos_plugins_core)) {
+            $plugins_validos_core[] = $plugin_core;
         } else {
-            error_log("[Emu Update Core] Plugin não encontrado: $plugin");
+            error_log("[Emu Update Core] Plugin não encontrado: $plugin_core");
         }
     }
 
-    return $plugins_validos;
+    return $plugins_validos_core;
 }
 
 // Execução principal
-$plugins_validos = validar_plugins_existentes(PLUGINS_LIST);
+$plugins_validos_core = validar_plugins_existentes(PLUGINS_LIST);
 
-foreach ($plugins_validos as $plugin) {
-    $plugin_name = dirname($plugin);
-    $plugin_file = basename($plugin);
+foreach ($plugins_validos_core as $plugin_core) {
+    $plugin_name_core = dirname($plugin_core);
+    $plugin_file_core = basename($plugin_core);
     
     // Verifica se o arquivo principal do plugin existe
-    if (file_exists(WP_PLUGIN_DIR . "/$plugin_name/$plugin_file")) {
+    if (file_exists(WP_PLUGIN_DIR . "/$plugin_name_core/$plugin_file_core")) {
         // Cria URL específica para cada plugin
-        $api_url = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name . '/info.json';
+        $api_url_core = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name_core . '/info.json';
 
         // Verificar se há atualizações disponíveis para o plugin
-        $update_plugins = get_site_transient('update_plugins');
+        $update_plugins_core = get_site_transient('update_plugins');
         
         // Verifica se o plugin tem uma atualização disponível
-        if (isset($update_plugins->response[$plugin]) && is_object($update_plugins->response[$plugin])) {
+        if (isset($update_plugins_core->response[$plugin_core]) && is_object($update_plugins_core->response[$plugin_core])) {
             // Se houver uma atualização disponível, cria o objeto de atualização
             new Emu_Update_Core(
-                $plugin_name,
-                $plugin_name,
-                $plugin_file,
-                $api_url // Passa a URL específica
+                $plugin_name_core,
+                $api_url_core // Passa a URL específica
             );
         } else {
-            error_log("[Emu Update Core] O plugin $plugin não tem atualização disponível.");
+            error_log("[Emu Update Core] O plugin $plugin_core não tem atualização disponível.");
         }
     } else {
-        error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name/$plugin_file");
+        error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name_core/$plugin_file_core");
     }
 }

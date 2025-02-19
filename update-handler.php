@@ -1,41 +1,60 @@
 <?php
 
-if (!defined('ABSPATH')) exit;
+class Emu_Update_Core { 
+    private $api_url_core;
+    private $plugin_slug_core;
+    private $checked = false; // Flag para evitar múltiplas verificações na mesma requisição
 
-    class Emu_Update_Core {
-    private $api_url;
-    private $plugin_slug;
-
-    public function __construct($plugin_slug, $api_url = '') {
-        $this->plugin_slug = $plugin_slug;
-        $this->api_url    = $api_url ? $api_url : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug . '/info.json';
+    public function __construct($plugin_slug_core, $api_url_core = '') {
+        $this->plugin_slug_core = $plugin_slug_core;
+        $this->api_url_core    = $api_url_core 
+            ? $api_url_core 
+            : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug_core . '/info.json';
 
         add_filter('plugins_api', [$this, 'plugin_info'], 20, 3);
         add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
+        
+        // Inicia a sessão, se não estiver ativa
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
     }
 
     public function plugin_info($res, $action, $args) {
-        if ('plugin_information' !== $action || $args->slug !== $this->plugin_slug) {
+        if ('plugin_information' !== $action || $args->slug !== $this->plugin_slug_core) {
             return $res;
         }
 
-        $remote = wp_remote_get($this->api_url);
-        if (is_wp_error($remote)) return $res;
+        // Verifica se já existe a informação na sessão
+        if (isset($_SESSION['emu_update_core_info_' . $this->plugin_slug_core])) {
+            return $_SESSION['emu_update_core_info_' . $this->plugin_slug_core];
+        }
 
-        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
-        if (!$plugin_info) return $res;
+        $remote = wp_remote_get($this->api_url_core);
+        if (is_wp_error($remote)) {
+            return $res;
+        }
 
-        $plugin_info->download_url = $this->sanitize_download_url($plugin_info->download_url);
+        $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info_core) {
+            return $res;
+        }
+
+        // Sanitiza a URL de download
+        $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
 
         $res = new stdClass();
-        $res->name = $plugin_info->name;
-        $res->slug = $this->plugin_slug;
-        $res->version = $plugin_info->version;
-        $res->author = '<a href="' . esc_url($plugin_info->author_homepage) . '">' . $plugin_info->author . '</a>';
-        $res->download_link = $plugin_info->download_url;
-        $res->tested = $plugin_info->tested;
-        $res->requires = $plugin_info->requires;
-        $res->sections = (array) $plugin_info->sections;
+        $res->name          = $plugin_info_core->name;
+        $res->slug          = $this->plugin_slug_core;
+        $res->version       = $plugin_info_core->version;
+        $res->author        = '<a href="' . esc_url($plugin_info_core->author_homepage) . '">' . $plugin_info_core->author . '</a>';
+        $res->download_link = $plugin_info_core->download_url;
+        $res->tested        = $plugin_info_core->tested;
+        $res->requires      = $plugin_info_core->requires;
+        $res->sections      = (array) $plugin_info_core->sections;
+
+        // Armazena as informações na sessão por esta requisição
+        $_SESSION['emu_update_core_info_' . $this->plugin_slug_core] = $res;
 
         return $res;
     }
@@ -45,41 +64,71 @@ if (!defined('ABSPATH')) exit;
             return $transient;
         }
 
-        $remote = wp_remote_get($this->api_url);
+        // Tenta recuperar a informação de atualização da sessão
+        if (isset($_SESSION['emu_update_core_update_' . $this->plugin_slug_core])) {
+            $cached_update = $_SESSION['emu_update_core_update_' . $this->plugin_slug_core];
+            if (!empty($cached_update)) {
+                $plugin_file_path_core = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
+                $transient->response[$plugin_file_path_core] = $cached_update;
+            }
+            return $transient;
+        }
+
+        // Se já foi verificado nesta requisição, não refaz a requisição remota
+        if ($this->checked) {
+            return $transient;
+        }
+        $this->checked = true;
+
+        $remote = wp_remote_get($this->api_url_core);
         if (is_wp_error($remote)) {
             return $transient;
         }
 
-        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
-        if (!$plugin_info) {
+        $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info_core) {
             return $transient;
         }
 
-        $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
-        $plugin_file_full_path = WP_PLUGIN_DIR . '/' . $plugin_file_path;
+        // Sanitiza a URL de download (se não tiver sido feita na requisição anterior)
+        $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
 
-        $plugin_headers = get_file_data($plugin_file_full_path, ['Version' => 'Version']);
-        $current_version = $plugin_headers['Version'];
+        $plugin_file_path_core      = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
+        $plugin_file_full_path_core = WP_PLUGIN_DIR . '/' . $plugin_file_path_core;
 
-        if (version_compare($current_version, $plugin_info->version, '<')) {
-            $transient->response[$plugin_file_path] = (object) [
-                'slug'        => $this->plugin_slug,
-                'plugin'      => $plugin_file_path,
-                'new_version' => $plugin_info->version,
-                'package'     => $plugin_info->download_url,
-                'tested'      => $plugin_info->tested,
-                'requires'    => $plugin_info->requires
+        if (!file_exists($plugin_file_full_path_core)) {
+            return $transient;
+        }
+
+        // Obtém a versão atual do plugin
+        $plugin_headers_core  = get_file_data($plugin_file_full_path_core, ['Version' => 'Version']);
+        $current_version_core = $plugin_headers_core['Version'];
+
+        // Se a versão remota for maior, prepara os dados de atualização
+        if (version_compare($current_version_core, $plugin_info_core->version, '<')) {
+            $update_data = (object) [
+                'slug'        => $this->plugin_slug_core,
+                'plugin'      => $plugin_file_path_core,
+                'new_version' => $plugin_info_core->version,
+                'package'     => $plugin_info_core->download_url,
+                'tested'      => $plugin_info_core->tested,
+                'requires'    => $plugin_info_core->requires
             ];
+
+            $transient->response[$plugin_file_path_core] = $update_data;
+            // Armazena os dados de atualização na sessão
+            $_SESSION['emu_update_core_update_' . $this->plugin_slug_core] = $update_data;
         }
 
         return $transient;
     }
 
     private function sanitize_download_url($url) {
-        // Implemente aqui qualquer sanitação necessária para a URL de download, se necessário.
         return esc_url_raw($url);
     }
 }
+
+
 
 class Emu_Updater {
     private $api_url;
