@@ -2,8 +2,83 @@
 
 if (!defined('ABSPATH')) exit;
 
-class Emu_Update_Core {
-    // Classe vazia, se necessário
+    class Emu_Update_Core {
+    private $api_url;
+    private $plugin_slug;
+
+    public function __construct($plugin_slug, $api_url = '') {
+        $this->plugin_slug = $plugin_slug;
+        $this->api_url    = $api_url ? $api_url : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug . '/info.json';
+
+        add_filter('plugins_api', [$this, 'plugin_info'], 20, 3);
+        add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
+    }
+
+    public function plugin_info($res, $action, $args) {
+        if ('plugin_information' !== $action || $args->slug !== $this->plugin_slug) {
+            return $res;
+        }
+
+        $remote = wp_remote_get($this->api_url);
+        if (is_wp_error($remote)) return $res;
+
+        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info) return $res;
+
+        $plugin_info->download_url = $this->sanitize_download_url($plugin_info->download_url);
+
+        $res = new stdClass();
+        $res->name = $plugin_info->name;
+        $res->slug = $this->plugin_slug;
+        $res->version = $plugin_info->version;
+        $res->author = '<a href="' . esc_url($plugin_info->author_homepage) . '">' . $plugin_info->author . '</a>';
+        $res->download_link = $plugin_info->download_url;
+        $res->tested = $plugin_info->tested;
+        $res->requires = $plugin_info->requires;
+        $res->sections = (array) $plugin_info->sections;
+
+        return $res;
+    }
+
+    public function check_for_update($transient) {
+        if (empty($transient->checked)) {
+            return $transient;
+        }
+
+        $remote = wp_remote_get($this->api_url);
+        if (is_wp_error($remote)) {
+            return $transient;
+        }
+
+        $plugin_info = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info) {
+            return $transient;
+        }
+
+        $plugin_file_path = $this->plugin_dir . '/' . $this->plugin_slug . '.php';
+        $plugin_file_full_path = WP_PLUGIN_DIR . '/' . $plugin_file_path;
+
+        $plugin_headers = get_file_data($plugin_file_full_path, ['Version' => 'Version']);
+        $current_version = $plugin_headers['Version'];
+
+        if (version_compare($current_version, $plugin_info->version, '<')) {
+            $transient->response[$plugin_file_path] = (object) [
+                'slug'        => $this->plugin_slug,
+                'plugin'      => $plugin_file_path,
+                'new_version' => $plugin_info->version,
+                'package'     => $plugin_info->download_url,
+                'tested'      => $plugin_info->tested,
+                'requires'    => $plugin_info->requires
+            ];
+        }
+
+        return $transient;
+    }
+
+    private function sanitize_download_url($url) {
+        // Implemente aqui qualquer sanitação necessária para a URL de download, se necessário.
+        return esc_url_raw($url);
+    }
 }
 
 class Emu_Updater {
