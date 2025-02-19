@@ -1,4 +1,5 @@
 <?php
+
 if (!defined('ABSPATH')) exit;
 
 class Emu_Update_Core {
@@ -15,9 +16,6 @@ class Emu_Updater {
 
         add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
         add_filter('plugins_api', [$this, 'plugin_details'], 10, 3);
-
-        // Verificar e corrigir o slug do plugin após ativação
-        add_action('activated_plugin', [$this, 'correct_plugin_slug']);
     }
 
     public function check_for_update($transient) {
@@ -80,22 +78,6 @@ class Emu_Updater {
             'sections'      => $update_info['sections']
         ];
     }
-
-    public function correct_plugin_slug() {
-        // Verifica se o plugin foi ativado e tem o sufixo "-main"
-        $plugin_dir_unsanitized = basename(__DIR__);
-        if (substr($plugin_dir_unsanitized, -5) === '-main') {
-            $plugin_slug = substr($plugin_dir_unsanitized, 0, -5);
-
-            // Renomeia o diretório do plugin (cuidado com permissões de arquivo)
-            $plugin_path = WP_PLUGIN_DIR . '/' . $plugin_dir_unsanitized;
-            $new_plugin_path = WP_PLUGIN_DIR . '/' . $plugin_slug;
-            rename($plugin_path, $new_plugin_path);
-
-            // Atualiza a base do plugin no WordPress
-            activate_plugin($new_plugin_path . '/' . $plugin_slug . '.php');
-        }
-    }
 }
 
 $plugin_dir_unsanitized = basename(__DIR__);
@@ -104,11 +86,60 @@ if (substr($plugin_slug, -5) === '-main') {
     $plugin_slug = substr($plugin_slug, 0, -5);
 }
 
+$desired_plugin_dir = $plugin_slug;
+$self_plugin_dir = $plugin_dir_unsanitized;
+
 new Emu_Updater($plugin_slug);
 
 // Exibe o link de "Verificar Atualizações" na listagem de plugins
-add_filter('plugin_action_links_' . $plugin_slug . '/' . $plugin_slug . '.php', function($actions) use ($plugin_slug) {
-    $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$plugin_slug"), "force_check_update_$plugin_slug");
+add_filter('plugin_action_links_' . $self_plugin_dir . '/' . $plugin_slug . '.php', function($actions) use ($self_plugin_dir) {
+    $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
     $actions['check_update'] = '<a href="' . esc_url($url) . '">Verificar Atualizações</a>';
     return $actions;
 });
+
+// Após instalação/atualização, move o plugin para o diretório desejado
+add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir) {
+    global $wp_filesystem;
+    
+    $proper_destination = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+    $current_destination = $result['destination'];
+    
+    if ($current_destination !== $proper_destination) {
+        $wp_filesystem->move($current_destination, $proper_destination);
+        $result['destination'] = $proper_destination;
+    }
+    
+    return $response;
+}, 10, 3);
+
+add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
+    $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
+    
+    if (isset($options['action'], $options['type'], $options['plugins']) && 
+        $options['action'] === 'update' && 
+        $options['type'] === 'plugin' && 
+        is_array($options['plugins']) && 
+        in_array($current_plugin_file, $options['plugins'])) {
+        
+        $plugin_file = $current_plugin_file;
+        
+        if ($self_plugin_dir !== $desired_plugin_dir) {
+            $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
+            $new_path = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+            
+            if (rename($old_path, $new_path)) {
+                $plugin_file = $desired_plugin_dir . '/' . $plugin_slug . '.php';
+            } else {
+                error_log('Erro ao renomear a pasta do plugin.');
+            }
+        }
+        
+        if (!is_plugin_active($plugin_file)) {
+            $result = activate_plugin($plugin_file);
+            if (is_wp_error($result)) {
+                error_log('Erro ao reativar o plugin: ' . $result->get_error_message());
+            }
+        }
+    }
+}, 10, 2);
