@@ -113,8 +113,9 @@ if (is_admin()) {
                     // Proceed to update the plugin
                     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
                     $upgrader = new Plugin_Upgrader();
+                    echo "<style>body > div.wrap {display: none;}</style>"
                     $upgrader->upgrade($core_plugin);
-
+                    
                     // If the plugin is not active, activate it
                     if (!is_plugin_active($core_plugin)) {
                         activate_plugin($core_plugin);
