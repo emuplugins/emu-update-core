@@ -144,3 +144,32 @@ if (is_admin()) {
         }
     });
 }
+
+// Auto check updates
+
+// Adds a custom 7-day interval
+add_filter('cron_schedules', function($schedules) {
+    $schedules['weekly'] = array(
+        'interval' => 7 * 24 * 60 * 60, // 7 days in seconds
+        'display'  => __('Every 7 days'),
+    );
+    return $schedules;
+});
+
+// Schedules the cron task every 7 days
+if (!wp_next_scheduled('check_plugins_update')) {
+    wp_schedule_event(time(), 'weekly', 'check_plugins_update');
+}
+
+// Function that will be executed every 7 days
+add_action('check_plugins_update', function () {
+    // Checks if the current user is an administrator (optional, depending on the logic)
+    if (current_user_can('manage_options')) {
+        // Executes the validation and update logic
+        $valid_core_plugins = validate_existing_plugins(PLUGINS_LIST);
+        
+        foreach ($valid_core_plugins as $core_plugin) {
+            check_and_force_update($core_plugin);
+        }
+    }
+});
