@@ -22,7 +22,7 @@ define('PLUGINS_LIST', [
     'jet-woo-product-gallery/jet-woo-product-gallery.php',
     'perfmatters/perfmatter.php',
     'jet-search/jet-search.php',
-    'jet-theme-core/jet-theme-core'
+    'jet-theme-core/jet-theme-core.php'
 ]);
 
 // Função para validar plugins existentes
