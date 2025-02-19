@@ -8,16 +8,7 @@ Author: Emu Plugins
 
 if (!defined('ABSPATH')) exit;
 
-add_action('admin_init', function() {
-    // Forçar a verificação de atualizações para todos os plugins
-    if (function_exists('get_plugin_updates')) {
-        get_plugin_updates(); // Verifica se há atualizações para todos os plugins
-    }
-});
 require_once 'update-handler.php';
-
-
-// Interceptar atualizações de terceiros
 
 define('PLUGINS_LIST', [
     'jet-smart-filters/jet-smart-filters.php',
@@ -53,32 +44,58 @@ function validar_plugins_existentes($plugins_core) {
     return $plugins_validos_core;
 }
 
-// Execução principal
-$plugins_validos_core = validar_plugins_existentes(PLUGINS_LIST);
+// Função para verificar e forçar a atualização do plugin
+function verificar_e_forcar_atualizacao($plugin_core) {
+    if (!function_exists('get_plugin_data')) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
 
-foreach ($plugins_validos_core as $plugin_core) {
-    $plugin_name_core = dirname($plugin_core);
-    $plugin_file_core = basename($plugin_core);
-    
-    // Verifica se o arquivo principal do plugin existe
-    if (file_exists(WP_PLUGIN_DIR . "/$plugin_name_core/$plugin_file_core")) {
-        // Cria URL específica para cada plugin
-        $api_url_core = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name_core . '/info.json';
+    $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_core);
+    $current_version = $plugin_data['Version'];
 
-        // Verificar se há atualizações disponíveis para o plugin
-        $update_plugins_core = get_site_transient('update_plugins');
-        
-        // Verifica se o plugin tem uma atualização disponível
-        if (isset($update_plugins_core->response[$plugin_core]) && is_object($update_plugins_core->response[$plugin_core])) {
-            // Se houver uma atualização disponível, cria o objeto de atualização
+    $update_plugins_core = get_site_transient('update_plugins');
+    if (isset($update_plugins_core->response[$plugin_core]) && is_object($update_plugins_core->response[$plugin_core])) {
+        $new_version = $update_plugins_core->response[$plugin_core]->new_version;
+
+        if (version_compare($current_version, $new_version, '<')) {
+            // Se a versão atual for menor que a nova versão, forçar a atualização
+            $plugin_name_core = dirname($plugin_core);
+            $api_url_core = 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $plugin_name_core . '/info.json';
+
             new Emu_Update_Core(
                 $plugin_name_core,
-                $api_url_core // Passa a URL específica
+                $api_url_core
             );
-        } else {
-            error_log("[Emu Update Core] O plugin $plugin_core não tem atualização disponível.");
+
+            // Verificar se a atualização foi bem-sucedida
+            $plugin_data_after_update = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_core);
+            $updated_version = $plugin_data_after_update['Version'];
+
+            if (version_compare($updated_version, $new_version, '<')) {
+                error_log("[Emu Update Core] Falha ao atualizar o plugin $plugin_core. Versão atual: $updated_version, Versão esperada: $new_version");
+                
+                
+                require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+            
+                $upgrader = new Plugin_Upgrader();
+                $upgrader->upgrade($plugin_core);
+                if (!is_plugin_active($plugin_core)) {
+                    activate_plugin($plugin_core);
+                }
+                
+            } else {
+                error_log("[Emu Update Core] Plugin $plugin_core atualizado com sucesso para a versão $updated_version");
+            }
         }
-    } else {
-        error_log("[Emu Update Core] Arquivo do plugin não encontrado: $plugin_name_core/$plugin_file_core");
+        
     }
 }
+
+// Execução principal
+add_action('admin_init', function() {
+    $plugins_validos_core = validar_plugins_existentes(PLUGINS_LIST);
+
+    foreach ($plugins_validos_core as $plugin_core) {
+        verificar_e_forcar_atualizacao($plugin_core);
+    }
+});
