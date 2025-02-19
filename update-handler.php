@@ -246,13 +246,7 @@ custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_
 
 // Manage custom plugin updates
 function custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir) {
-    // Displays the "Check for Updates" link in the plugin listing
-    add_filter('plugin_action_links_' . $self_plugin_dir . '/' . $plugin_slug . '.php', function($actions) use ($self_plugin_dir) {
-        $url = wp_nonce_url(admin_url("plugins.php?force-check-update=$self_plugin_dir"), "force_check_update_$self_plugin_dir");
-        $actions['check_update'] = '<a href="' . esc_url($url) . '">Check for Updates</a>';
-        return $actions;
-    });
-
+    
     // After installation/update, move the plugin to the desired directory
     add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir) {
         global $wp_filesystem;
