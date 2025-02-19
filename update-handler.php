@@ -2,6 +2,8 @@
 
 if ( ! defined('ABSPATH')) exit;
 
+if ( ! is_admin()) return;
+
 if ( ! class_exists('Emu_Update_Core')) {
 
     class Emu_Update_Core {
