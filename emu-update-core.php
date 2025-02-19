@@ -79,6 +79,7 @@ function check_and_force_update($core_plugin) {
             $updated_version = $plugin_data_after_update['Version'];
 
             if (version_compare($updated_version, $new_version, '<')) {
+
                 
                 // If the plugin was updated in the last 7 days, don't update again
                 if ($last_update && ($current_time - $last_update) < 7 * DAY_IN_SECONDS) {
@@ -88,13 +89,12 @@ function check_and_force_update($core_plugin) {
                 
                 $upgrader = new Plugin_Upgrader();
                 $upgrader->upgrade($core_plugin);
-
                 if (!is_plugin_active($core_plugin)) {
                     activate_plugin($core_plugin);
+                    // Update the last update time to the current time
+                    update_option('last_update_' . $core_plugin, $current_time);
                 }
-
-                // Update the last update time to the current time
-                update_option('last_update_' . $core_plugin, $current_time);
+                
 
             } else {
                 error_log("[Emu Update Core] Plugin $core_plugin updated successfully to version $updated_version");
