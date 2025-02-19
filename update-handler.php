@@ -245,52 +245,60 @@ new Emu_Updater($plugin_slug);
 custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir);
 
 // Manage custom plugin updates
-function custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir) {
-    
-    // After installation/update, move the plugin to the desired directory
-    add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir) {
-        global $wp_filesystem;
+if (!function_exists('custom_plugin_update_management')) {
+    function custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir) {
+        
+        // Check if the current plugin is being installed/updated, to prevent interference from other plugins
+        add_filter('upgrader_post_install', function($response, $hook_extra, $result) use ($desired_plugin_dir, $self_plugin_dir) {
+            global $wp_filesystem;
 
-        $proper_destination = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
-        $current_destination = $result['destination'];
+            // Ensure the current plugin is the one being updated/installed
+            if (isset($hook_extra['plugin']) && basename($hook_extra['plugin']) === $self_plugin_dir . '.php') {
+                $proper_destination = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+                $current_destination = $result['destination'];
 
-        if ($current_destination !== $proper_destination) {
-            $wp_filesystem->move($current_destination, $proper_destination);
-            $result['destination'] = $proper_destination;
-        }
-
-        return $response;
-    }, 10, 3);
-
-    // Handle plugin reactivation after update
-    add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
-        $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
-
-        if (isset($options['action'], $options['type'], $options['plugins']) && 
-            $options['action'] === 'update' && 
-            $options['type'] === 'plugin' && 
-            is_array($options['plugins']) && 
-            in_array($current_plugin_file, $options['plugins'])) {
-
-            $plugin_file = $current_plugin_file;
-
-            if ($self_plugin_dir !== $desired_plugin_dir) {
-                $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
-                $new_path = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
-
-                if (rename($old_path, $new_path)) {
-                    $plugin_file = $desired_plugin_dir . '/' . $plugin_slug . '.php';
-                } else {
-                    error_log('Error renaming the plugin folder.');
+                // Only move the plugin if it is the one being updated/installed
+                if ($current_destination !== $proper_destination) {
+                    $wp_filesystem->move($current_destination, $proper_destination);
+                    $result['destination'] = $proper_destination;
                 }
             }
 
-            if (!is_plugin_active($plugin_file)) {
-                $result = activate_plugin($plugin_file);
-                if (is_wp_error($result)) {
-                    error_log('Error reactivating the plugin: ' . $result->get_error_message());
+            return $response;
+        }, 10, 3);
+
+        // Handle plugin reactivation after update
+        add_action('upgrader_process_complete', function($upgrader_object, $options) use ($self_plugin_dir, $desired_plugin_dir, $plugin_slug) {
+            $current_plugin_file = $self_plugin_dir . '/' . $plugin_slug . '.php';
+
+            // Ensure the plugin being processed is the correct one
+            if (isset($options['action'], $options['type'], $options['plugins']) && 
+                $options['action'] === 'update' && 
+                $options['type'] === 'plugin' && 
+                is_array($options['plugins']) && 
+                in_array($current_plugin_file, $options['plugins'])) {
+
+                $plugin_file = $current_plugin_file;
+
+                if ($self_plugin_dir !== $desired_plugin_dir) {
+                    $old_path = WP_PLUGIN_DIR . '/' . $self_plugin_dir;
+                    $new_path = WP_PLUGIN_DIR . '/' . $desired_plugin_dir;
+
+                    if (rename($old_path, $new_path)) {
+                        $plugin_file = $desired_plugin_dir . '/' . $plugin_slug . '.php';
+                    } else {
+                        error_log('Error renaming the plugin folder.');
+                    }
+                }
+
+                // Reactivate the plugin only if it is the one being processed
+                if (!is_plugin_active($plugin_file)) {
+                    $result = activate_plugin($plugin_file);
+                    if (is_wp_error($result)) {
+                        error_log('Error reactivating the plugin: ' . $result->get_error_message());
+                    }
                 }
             }
-        }
-    }, 10, 2);
+        }, 10, 2);
+    }
 }
