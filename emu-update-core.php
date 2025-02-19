@@ -74,22 +74,21 @@ function check_and_force_update($core_plugin) {
                 $api_url
             );
 
-            // If the plugin was updated in the last 7 days, don't update again
-            if ($last_update && ($current_time - $last_update) < 7 * DAY_IN_SECONDS) {
-                error_log("[Emu Update Core] Plugin $core_plugin was updated recently. Skipping update.");
-                return; // Exit without updating
-            }
-
             // Check if the update was successful
             $plugin_data_after_update = get_plugin_data(WP_PLUGIN_DIR . '/' . $core_plugin);
             $updated_version = $plugin_data_after_update['Version'];
 
             if (version_compare($updated_version, $new_version, '<')) {
-                              
+                
+                // If the plugin was updated in the last 7 days, don't update again
+                if ($last_update && ($current_time - $last_update) < 7 * DAY_IN_SECONDS) {
+                    return; // Exit without updating
+                }              
                 require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
                 
                 $upgrader = new Plugin_Upgrader();
                 $upgrader->upgrade($core_plugin);
+
                 if (!is_plugin_active($core_plugin)) {
                     activate_plugin($core_plugin);
                 }
