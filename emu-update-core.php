@@ -109,16 +109,20 @@ if (is_admin()) {
                     if ($last_update && ($current_time - $last_update) < 7 * DAY_IN_SECONDS) {
                         return; // Exit the function without updating
                     }
-                
+                    
                     // Proceed to update the plugin
                     require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
                     $upgrader = new Plugin_Upgrader();
-                    $upgrader->upgrade($core_plugin);
-                
-                    // Add CSS to hide the wrap div
+
                     add_action('admin_head', function() {
                         echo '<style>body > div.wrap {display: none;}</style>';
-                    });
+                    }, 1);
+
+                    $upgrader->upgrade($core_plugin);
+
+                    add_action('admin_head', function() {
+                        echo '<style>body > div.wrap {display: none;}</style>';
+                    }, 1); 
                 
                     // If the plugin is not active, activate it
                     if (!is_plugin_active($core_plugin)) {
