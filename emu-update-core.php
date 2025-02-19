@@ -12,7 +12,9 @@ if ( ! defined('ABSPATH')) exit;
 // INITIALIZE THE UPDATE SYSTEM
 // ==============================================================================================================
 
-require_once 'update-handler.php'; // Requires the update handler file
+if (is_admin()) {
+    require_once plugin_dir_path(__FILE__) . 'update-handler.php';
+}
 
 // ==============================================================================================================
 // DEFINE THE PLUGIN LIST TO BE CHECKED
