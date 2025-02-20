@@ -30,9 +30,9 @@ if (is_admin()) {
         'jet-menu/jet-menu.php',
         'jet-form-builder-login-action/jet-form-builder-login-action.php',
         'jet-woo-product-gallery/jet-woo-product-gallery.php',
-        'perfmatters/perfmatter.php',
         'jet-search/jet-search.php',
-        'jet-theme-core/jet-theme-core.php'
+        'jet-theme-core/jet-theme-core.php',
+        'perfmatters/perfmatters.php'
     ]); 
 
     // ==============================================================================================================
