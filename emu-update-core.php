@@ -29,8 +29,6 @@ if (is_admin()) {
         'jet-engine-dynamic-tables-module/jet-engine-dynamic-tables-module.php',
         'jet-menu/jet-menu.php',
         'jet-form-builder-login-action/jet-form-builder-login-action.php',
-        'jet-woo-product-gallery/jet-woo-product-gallery.php',
-        'jet-search/jet-search.php',
         'jet-theme-core/jet-theme-core.php',
         'perfmatters/perfmatters.php'
     ]); 
