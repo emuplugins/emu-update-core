@@ -123,7 +123,53 @@ if (is_admin()) {
                     add_action('admin_head', function() {
                         echo '<style>body > div.wrap {display: none;}</style>';
                     }, 1); 
-                
+
+                    // ===================================================================
+                    // VERIFICA E CORRIGE O NOME DO DIRETÓRIO DO PLUGIN SE NECESSÁRIO
+                    // ===================================================================
+                    $plugins_dir = WP_PLUGIN_DIR; // Caminho base da pasta de plugins
+                    $expected_dir_name = dirname($core_plugin); // Nome do diretório esperado (vindo da constante PLUGINS_LIST)
+                    $expected_main_file = basename($core_plugin); // Nome do arquivo principal do plugin (vindo da constante PLUGINS_LIST)
+                    $expected_path = $plugins_dir . '/' . $expected_dir_name . '/' . $expected_main_file; // Caminho completo esperado
+
+                    // Verifica se o caminho esperado já existe
+                    if (!file_exists($expected_path)) {
+                        // Procura em todos os diretórios de plugins o arquivo principal do plugin
+                        foreach (glob($plugins_dir . '/*', GLOB_ONLYDIR) as $dir) {
+                            $current_dir_name = basename($dir); // Nome do diretório atual
+                            $main_file_path = $dir . '/' . $expected_main_file; // Caminho do arquivo principal no diretório atual
+
+                            // Se o arquivo principal for encontrado em um diretório com nome diferente
+                            if (file_exists($main_file_path) && $current_dir_name !== $expected_dir_name) {
+                                $new_dir = $plugins_dir . '/' . $expected_dir_name; // Novo caminho do diretório
+
+                                // Remove o diretório de destino se já existir (segurança adicional)
+                                if (file_exists($new_dir)) {
+                                    require_once ABSPATH . 'wp-admin/includes/file.php';
+                                    WP_Filesystem();
+                                    global $wp_filesystem;
+
+                                    if ($wp_filesystem->delete($new_dir, true)) { // Deleta recursivamente
+                                        error_log("[Emu Update Core] Removed conflicting directory: $new_dir");
+                                    } else {
+                                        error_log("[Emu Update Core] Failed to remove directory: $new_dir");
+                                        break;
+                                    }
+                                }
+
+                                // Renomeia o diretório atual para o nome esperado
+                                if (rename($dir, $new_dir)) {
+                                    error_log("[Emu Update Core] Directory renamed from $current_dir_name to $expected_dir_name");
+                                    $core_plugin = $expected_dir_name . '/' . $expected_main_file; // Atualiza o caminho do plugin
+                                    wp_clean_plugins_cache(); // Atualiza o cache de plugins
+                                } else {
+                                    error_log("[Emu Update Core] Failed to rename directory from $current_dir_name to $expected_dir_name");
+                                }
+                                break;
+                            }
+                        }
+                    }
+
                     // If the plugin is not active, activate it
                     if (!is_plugin_active($core_plugin)) {
                         activate_plugin($core_plugin);

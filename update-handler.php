@@ -2,139 +2,193 @@
 
 if ( ! defined('ABSPATH')) exit;
 
-if ( ! class_exists('Emu_Update_Core')) {
+if ( ! class_exists('Emu_Update_Core') ) {
 
     class Emu_Update_Core {
-        private $api_url_core;
-        private $plugin_slug_core;
-        private $checked = false; // Flag to prevent multiple checks on the same request
+    private $api_url_core;
+    private $plugin_slug_core;
+    private $checked = false; // Flag to prevent multiple checks on the same request
 
-        public function __construct($plugin_slug_core, $api_url_core = '') {
-            $this->plugin_slug_core = $plugin_slug_core;
-            $this->api_url_core = $api_url_core 
-                ? $api_url_core 
-                : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug_core . '/info.json';
+    public function __construct($plugin_slug_core, $api_url_core = '') {
+        $this->plugin_slug_core = $plugin_slug_core;
+        $this->api_url_core = $api_url_core 
+            ? $api_url_core 
+            : 'https://raw.githubusercontent.com/emuplugins/emu-update-list/main/' . $this->plugin_slug_core . '/info.json';
 
-            add_filter('plugins_api', [$this, 'plugin_info'], 20, 3);
-            add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
+        add_filter('plugins_api', [$this, 'plugin_info'], 20, 3);
+        add_filter('site_transient_update_plugins', [$this, 'check_for_update']);
 
-            // Start the session if it's not already active
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
+        // Adiciona o hook para verificar e corrigir o diretório após a atualização
+        add_action('upgrader_post_install', [$this, 'verify_and_fix_plugin_directory_after_update'], 10, 3);
+
+        // Start the session if it's not already active
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
+    }
 
-        // Retrieve plugin information
-        public function plugin_info($res, $action, $args) {
-            if ('plugin_information' !== $action || $args->slug !== $this->plugin_slug_core) {
-                return $res;
-            }
-
-            // Check if the information is already in the session
-            if (isset($_SESSION['emu_update_core_info_' . $this->plugin_slug_core])) {
-                return $_SESSION['emu_update_core_info_' . $this->plugin_slug_core];
-            }
-
-            $remote = wp_remote_get($this->api_url_core);
-            if (is_wp_error($remote)) {
-                return $res;
-            }
-
-            $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
-            if (!$plugin_info_core) {
-                return $res;
-            }
-
-            // Sanitize the download URL
-            $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
-
-            $res = new stdClass();
-            $res->name = $plugin_info_core->name;
-            $res->slug = $this->plugin_slug_core;
-            $res->version = $plugin_info_core->version;
-            $res->author = '<a href="' . esc_url($plugin_info_core->author_homepage) . '">' . $plugin_info_core->author . '</a>';
-            $res->download_link = $plugin_info_core->download_url;
-            $res->tested = $plugin_info_core->tested;
-            $res->requires = $plugin_info_core->requires;
-            $res->sections = (array) $plugin_info_core->sections;
-
-            // Store the information in the session for this request
-            $_SESSION['emu_update_core_info_' . $this->plugin_slug_core] = $res;
-
+    // Retrieve plugin information
+    public function plugin_info($res, $action, $args) {
+        if ('plugin_information' !== $action || $args->slug !== $this->plugin_slug_core) {
             return $res;
         }
 
-        // Check for plugin updates
-        public function check_for_update($transient) {
-            if (empty($transient->checked)) {
-                return $transient;
-            }
+        // Check if the information is already in the session
+        if (isset($_SESSION['emu_update_core_info_' . $this->plugin_slug_core])) {
+            return $_SESSION['emu_update_core_info_' . $this->plugin_slug_core];
+        }
 
-            // Try to retrieve the update information from the session
-            if (isset($_SESSION['emu_update_core_update_' . $this->plugin_slug_core])) {
-                $cached_update = $_SESSION['emu_update_core_update_' . $this->plugin_slug_core];
-                if (!empty($cached_update)) {
-                    $plugin_file_path_core = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
-                    $transient->response[$plugin_file_path_core] = $cached_update;
-                }
-                return $transient;
-            }
+        $remote = wp_remote_get($this->api_url_core);
+        if (is_wp_error($remote)) {
+            return $res;
+        }
 
-            // If it has already been checked in this request, do not make another remote request
-            if ($this->checked) {
-                return $transient;
-            }
-            $this->checked = true;
-
-            $remote = wp_remote_get($this->api_url_core);
-            if (is_wp_error($remote)) {
-                return $transient;
-            }
-
-            $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
-            if (!$plugin_info_core) {
-                return $transient;
-            }
-
-            // Sanitize the download URL (if not done in the previous request)
-            $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
-
-            $plugin_file_path_core = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
-            $plugin_file_full_path_core = WP_PLUGIN_DIR . '/' . $plugin_file_path_core;
-
-            if (!file_exists($plugin_file_full_path_core)) {
-                return $transient;
-            }
-
-            // Get the current version of the plugin
-            $plugin_headers_core = get_file_data($plugin_file_full_path_core, ['Version' => 'Version']);
-            $current_version_core = $plugin_headers_core['Version'];
-
-            // If the remote version is greater, prepare the update data
-            if (version_compare($current_version_core, $plugin_info_core->version, '<')) {
-                $update_data = (object) [
-                    'slug' => $this->plugin_slug_core,
-                    'plugin' => $plugin_file_path_core,
-                    'new_version' => $plugin_info_core->version,
-                    'package' => $plugin_info_core->download_url,
-                    'tested' => $plugin_info_core->tested,
-                    'requires' => $plugin_info_core->requires
-                ];
-
-                $transient->response[$plugin_file_path_core] = $update_data;
-                // Store the update data in the session
-                $_SESSION['emu_update_core_update_' . $this->plugin_slug_core] = $update_data;
-            }
-
-            return $transient;
+        $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info_core) {
+            return $res;
         }
 
         // Sanitize the download URL
-        private function sanitize_download_url($url) {
-            return esc_url_raw($url);
+        $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
+
+        $res = new stdClass();
+        $res->name = $plugin_info_core->name;
+        $res->slug = $this->plugin_slug_core;
+        $res->version = $plugin_info_core->version;
+        $res->author = '<a href="' . esc_url($plugin_info_core->author_homepage) . '">' . $plugin_info_core->author . '</a>';
+        $res->download_link = $plugin_info_core->download_url;
+        $res->tested = $plugin_info_core->tested;
+        $res->requires = $plugin_info_core->requires;
+        $res->sections = (array) $plugin_info_core->sections;
+
+        // Store the information in the session for this request
+        $_SESSION['emu_update_core_info_' . $this->plugin_slug_core] = $res;
+
+        return $res;
+    }
+
+    // Check for plugin updates
+    public function check_for_update($transient) {
+        if (empty($transient->checked)) {
+            return $transient;
         }
+
+        // Try to retrieve the update information from the session
+        if (isset($_SESSION['emu_update_core_update_' . $this->plugin_slug_core])) {
+            $cached_update = $_SESSION['emu_update_core_update_' . $this->plugin_slug_core];
+            if (!empty($cached_update)) {
+                $plugin_file_path_core = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
+                $transient->response[$plugin_file_path_core] = $cached_update;
+            }
+            return $transient;
+        }
+
+        // If it has already been checked in this request, do not make another remote request
+        if ($this->checked) {
+            return $transient;
+        }
+        $this->checked = true;
+
+        $remote = wp_remote_get($this->api_url_core);
+        if (is_wp_error($remote)) {
+            return $transient;
+        }
+
+        $plugin_info_core = json_decode(wp_remote_retrieve_body($remote));
+        if (!$plugin_info_core) {
+            return $transient;
+        }
+
+        // Sanitize the download URL (if not done in the previous request)
+        $plugin_info_core->download_url = $this->sanitize_download_url($plugin_info_core->download_url);
+
+        $plugin_file_path_core = $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php';
+        $plugin_file_full_path_core = WP_PLUGIN_DIR . '/' . $plugin_file_path_core;
+
+        if (!file_exists($plugin_file_full_path_core)) {
+            return $transient;
+        }
+
+        // Get the current version of the plugin
+        $plugin_headers_core = get_file_data($plugin_file_full_path_core, ['Version' => 'Version']);
+        $current_version_core = $plugin_headers_core['Version'];
+
+        // If the remote version is greater, prepare the update data
+        if (version_compare($current_version_core, $plugin_info_core->version, '<')) {
+            $update_data = (object) [
+                'slug' => $this->plugin_slug_core,
+                'plugin' => $plugin_file_path_core,
+                'new_version' => $plugin_info_core->version,
+                'package' => $plugin_info_core->download_url,
+                'tested' => $plugin_info_core->tested,
+                'requires' => $plugin_info_core->requires
+            ];
+
+            $transient->response[$plugin_file_path_core] = $update_data;
+            // Store the update data in the session
+            $_SESSION['emu_update_core_update_' . $this->plugin_slug_core] = $update_data;
+        }
+
+        return $transient;
+    }
+
+    // Sanitize the download URL
+    private function sanitize_download_url($url) {
+        return esc_url_raw($url);
+    }
+
+    // Verifica e corrige o diretório do plugin após a atualização
+    public function verify_and_fix_plugin_directory_after_update($true, $hook_extra, $result) {
+        // Verifica se o plugin atualizado é o que estamos gerenciando
+        if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->plugin_slug_core . '/' . $this->plugin_slug_core . '.php') {
+            $plugins_dir = WP_PLUGIN_DIR; // Caminho base da pasta de plugins
+            $expected_dir_name = $this->plugin_slug_core; // Nome do diretório esperado
+            $expected_main_file = $this->plugin_slug_core . '.php'; // Nome do arquivo principal do plugin
+            $expected_path = $plugins_dir . '/' . $expected_dir_name . '/' . $expected_main_file; // Caminho completo esperado
+
+            // Verifica se o caminho esperado já existe
+            if (!file_exists($expected_path)) {
+                // Procura em todos os diretórios de plugins o arquivo principal do plugin
+                foreach (glob($plugins_dir . '/*', GLOB_ONLYDIR) as $dir) {
+                    $current_dir_name = basename($dir); // Nome do diretório atual
+                    $main_file_path = $dir . '/' . $expected_main_file; // Caminho do arquivo principal no diretório atual
+
+                    // Se o arquivo principal for encontrado em um diretório com nome diferente
+                    if (file_exists($main_file_path) && $current_dir_name !== $expected_dir_name) {
+                        $new_dir = $plugins_dir . '/' . $expected_dir_name; // Novo caminho do diretório
+
+                        // Remove o diretório de destino se já existir (segurança adicional)
+                        if (file_exists($new_dir)) {
+                            require_once ABSPATH . 'wp-admin/includes/file.php';
+                            WP_Filesystem();
+                            global $wp_filesystem;
+
+                            if ($wp_filesystem->delete($new_dir, true)) { // Deleta recursivamente
+                                error_log("[Emu Update Core] Removed conflicting directory: $new_dir");
+                            } else {
+                                error_log("[Emu Update Core] Failed to remove directory: $new_dir");
+                                break;
+                            }
+                        }
+
+                        // Renomeia o diretório atual para o nome esperado
+                        if (rename($dir, $new_dir)) {
+                            error_log("[Emu Update Core] Directory renamed from $current_dir_name to $expected_dir_name");
+                            wp_clean_plugins_cache(); // Atualiza o cache de plugins
+                        } else {
+                            error_log("[Emu Update Core] Failed to rename directory from $current_dir_name to $expected_dir_name");
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $result; // Retorna o resultado original para o upgrader
     }
 }
+}
+
 
 if ( ! class_exists('Emu_Updater')) {
     class Emu_Updater {
