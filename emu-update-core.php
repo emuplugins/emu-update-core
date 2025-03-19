@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Emu Update Core
  * Description: Handle the update sistem for GPL Plugins and Themes.
- * Version:     1.0.2
+ * Version:     1.0.3
  * Author:      Emu Plugins
  * License:     GPL-2.0+
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
