@@ -174,14 +174,13 @@ if (!function_exists('custom_plugin_update_management')) {
 // Function call
 custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_dir);
 
-
-
 add_action('admin_init', function() {
-	if (isset($_GET['force-check-update']) && isset($_GET['_wpnonce'])) {
+
+	if (isset($_GET['force-check-update'])) {
 
 	delete_transient('json_plugin_info');
-
 	delete_site_transient('update_plugins');
 
 	}
+
 });
