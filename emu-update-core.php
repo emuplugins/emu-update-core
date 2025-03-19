@@ -35,7 +35,7 @@ add_filter('site_transient_update_plugins', function($transient) {
             'jet-elements/jet-elements.php',
             'jet-popup/jet-popup.php',
             'jet-tabs/jet-tabs.php',
-            'jet-engine-dynamic-tables-module/jet-engine-dynamic-tables-module.php',
+            'jet-engine/jet-engine-dynamic-tables-module.php',
             'jet-menu/jet-menu.php',
             'jet-form-builder-login-action/jet-form-builder-login-action.php',
             'jet-theme-core/jet-theme-core.php',
