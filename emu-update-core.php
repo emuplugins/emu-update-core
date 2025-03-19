@@ -20,10 +20,8 @@ if (is_admin()) {
     require_once PLUGIN_DIR . 'update-handler.php';
 }
 
-delete_site_transient('update_plugins'); 
-
 add_filter('site_transient_update_plugins', function($transient) {
-    
+
     // Definindo a lista de plugins
     if (!defined('PLUGINS_LIST')) {
         define('PLUGINS_LIST', [
@@ -39,6 +37,7 @@ add_filter('site_transient_update_plugins', function($transient) {
             'perfmatters/perfmatters.php'
         ]);
     }
+    if (!function_exists('get_plugins')) return;
 
     $all_core_plugins = get_plugins();
 
@@ -46,29 +45,54 @@ add_filter('site_transient_update_plugins', function($transient) {
     foreach (PLUGINS_LIST as $plugin) {
 
         // Verifica se o plugin está instalado
-        if (!array_key_exists($plugin, $all_core_plugins)) continue;
+        if (array_key_exists($plugin, $all_core_plugins)) {
 
-        // Obtém a versão atual do plugin instalado
-        $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin);
-        $current_version = $plugin_data['Version']; // Versão atual instalada
+            // Obtém a versão atual do plugin instalado
+            $plugin_data = get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin);
+            $current_version = $plugin_data['Version']; // Versão atual instalada
 
-        // Obtém o slug do plugin (sem a extensão .php)
-        $plugin_slug = str_replace('.php', '', $plugin);
-        $plugin_slug = explode('/', $plugin_slug)[0];
+            // Obtém o slug do plugin (sem a extensão .php)
+            $plugin_slug = dirname($plugin);
 
-        // Obtém o JSON de informações sobre o plugin
-        $response = wp_remote_get('https://raw.githubusercontent.com/emuplugins/emu-update-list/main/'.$plugin_slug.'/info.json?rand=' . rand(), [
-            'headers' => [
-                'Cache-Control' => 'no-cache, no-store, must-revalidate',
-                'Pragma' => 'no-cache',
-                'Expires' => '0'
-            ]
-        ]);
-        
-        if (!is_wp_error($response)) {
-            // Decodifica o corpo da resposta JSON
-            $json_body = wp_remote_retrieve_body($response);
-            $data = json_decode($json_body, true);
+            // Verifica se a resposta já foi salva para este plugin
+            $jsonResponse = get_transient('json_plugin_info');
+
+            if ($jsonResponse === false || !array_key_exists($plugin_slug, $jsonResponse)) {
+                // Realiza a requisição HTTP para obter informações sobre o plugin
+                $response = wp_remote_get('https://raw.githubusercontent.com/emuplugins/emu-update-list/refs/heads/main/' . $plugin_slug . '/info.json');
+            
+                if (!is_wp_error($response)) {
+                    // Decodifica a resposta JSON
+                    $json_body = wp_remote_retrieve_body($response);
+                    $data = json_decode($json_body, true);
+            
+                    // Recupera o valor atual do transient (se existir)
+                    $existing_jsonResponse = get_transient('json_plugin_info');
+            
+                    // Se não houver dados existentes, cria um novo array
+                    if ($existing_jsonResponse === false) {
+                        $existing_jsonResponse = [];
+                    }
+            
+                    // Adiciona ou atualiza a entrada no array
+                    $existing_jsonResponse[$plugin_slug] = $data ? $data : 'invalidJson';
+            
+                    // Salva novamente no cache (12 horas)
+                    set_transient('json_plugin_info', $existing_jsonResponse, 12 * HOUR_IN_SECONDS);
+                }
+            }
+            
+        }
+    }
+
+    // Agora, manipula o transient de atualização de plugins
+    foreach (PLUGINS_LIST as $plugin) {
+        $plugin_slug = dirname($plugin);
+
+        $jsonResponse = get_transient('json_plugin_info');
+
+        if (isset($jsonResponse[$plugin_slug])) {
+            $data = $jsonResponse[$plugin_slug];
 
             // Se o JSON contiver as informações do plugin
             if (!empty($data) && isset($transient->response)) {
@@ -91,8 +115,13 @@ add_filter('site_transient_update_plugins', function($transient) {
                 }
             }
         }
-    }
+    }    
 
     return $transient;
 
 });
+
+
+delete_transient('json_plugin_info');
+
+delete_site_transient('update_plugins');
