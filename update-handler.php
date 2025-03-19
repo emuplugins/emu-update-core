@@ -176,5 +176,6 @@ custom_plugin_update_management($self_plugin_dir, $plugin_slug, $desired_plugin_
 
 if (isset($_GET['force-check-update'])) {
 	$transient_key = '_transient_emu_updater_' . $plugin_slug;
-	delete_option($transient_key);	
+	delete_option($transient_key);
+	delete_transient('json_plugin_info');
 }
