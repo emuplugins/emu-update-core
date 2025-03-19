@@ -1,11 +1,11 @@
 {
     "name": "Emu Update Core",
     "slug": "emu-update-core",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "download_url": "https://github.com/emuplugins/emu-update-core/archive/refs/heads/main.zip",
     "tested": "6.4",
     "requires": "5.8",
-    "author": "Tonny",
+    "author": "Emu Plugins",
     "author_homepage": "https://angardagency.com",
     "last_updated": "2025-02-12",
     "sections": {
