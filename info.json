@@ -1,7 +1,7 @@
 {
     "name": "Emu Update Core",
     "slug": "emu-update-core",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "download_url": "https://github.com/emuplugins/emu-update-core/archive/refs/heads/main.zip",
     "tested": "6.4",
     "requires": "5.8",
