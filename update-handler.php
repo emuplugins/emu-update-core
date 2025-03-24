@@ -38,10 +38,10 @@ if ( ! class_exists('Emu_Updater')) {
 
             if (version_compare($update_info['version'], $current_version, '>')) {
                 $transient->response[$plugin_file] = (object) [
-                    'slug' => $update_info['slug'],
-                    'new_version' => $update_info['version'],
-                    'package' => $update_info['download_url'],
-                    'url' => $update_info['author_homepage']
+                    'slug' => $update_info['slug'] ?? '',
+                    'new_version' => $update_info['version'] ?? '',
+                    'package' => $update_info['download_url'] ?? '',
+                    'url' => $update_info['author_homepage'] ?? ''
                 ];
             }
 
